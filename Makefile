@@ -18,7 +18,7 @@ define PROJECT_ENV
 	    {vm_memory_high_watermark_paging_ratio, 0.5},
 	    {memory_monitor_interval, 2500},
 	    {disk_free_limit, 50000000}, %% 50MB
-	    {msg_store_index_module, rabbit_msg_store_ets_index},
+	    {msg_store_index_module, rabbit_msg_store_eleveldb_index},
 	    {backing_queue_module, rabbit_variable_queue},
 	    %% 0 ("no limit") would make a better default, but that
 	    %% breaks the QPid Java client
@@ -120,10 +120,11 @@ define PROJECT_ENV
 endef
 
 LOCAL_DEPS = sasl mnesia os_mon
-BUILD_DEPS = rabbitmq_cli
+BUILD_DEPS = rabbitmq_cli eleveldb
 DEPS = ranch lager rabbit_common
 TEST_DEPS = rabbitmq_ct_helpers rabbitmq_ct_client_helpers amqp_client meck proper
 
+dep_eleveldb_commit = 2.0.34
 dep_rabbitmq_cli = git_rmq rabbitmq-cli $(current_rmq_ref) $(base_rmq_ref) rabbitmq-cli-integration
 
 define usage_xml_to_erl
