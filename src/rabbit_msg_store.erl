@@ -1094,7 +1094,7 @@ write_action({true, #msg_location { file = File }}, _MsgId, State) ->
 write_action({false, not_found}, _MsgId, State) ->
     {write, State};
 write_action({Mask, #msg_location { ref_count = 0, file = File,
-                                    total_size = TotalSize }},
+                                    total_size = TotalSize } = Location},
              MsgId, State = #msstate { file_summary_ets = FileSummaryEts }) ->
     case {Mask, ets:lookup(FileSummaryEts, File)} of
         {false, [#file_summary { locked = true }]} ->
@@ -1107,13 +1107,14 @@ write_action({Mask, #msg_location { ref_count = 0, file = File,
             %% ignore this write.
             {ignore, File, State};
         {_Mask, [#file_summary {}]} ->
-            ok = index_update_ref_count(MsgId, 1, State),
+            ok = index_update_ref_count(MsgId, Location, 1, State),
             State1 = adjust_valid_total_size(File, TotalSize, State),
             {confirm, File, State1}
     end;
-write_action({_Mask, #msg_location { ref_count = RefCount, file = File }},
+write_action({_Mask, #msg_location { ref_count = RefCount,
+                                     file = File } = Location},
              MsgId, State) ->
-    ok = index_update_ref_count(MsgId, RefCount + 1, State),
+    ok = index_update_ref_count(MsgId, Location, RefCount + 1, State),
     %% We already know about it, just update counter. Only update
     %% field otherwise bad interaction with concurrent GC
     {confirm, File, State}.
@@ -1514,6 +1515,9 @@ index_lookup_positive_ref_count(Key, State) ->
         #msg_location {} = MsgLocation  -> MsgLocation
     end.
 
+index_update_ref_count(_Key, Location, RefCount, State) ->
+    index_update(Location#msg_location{ ref_count = RefCount }, State).
+
 index_update_ref_count(Key, RefCount, State) ->
     index_update_fields(Key, {#msg_location.ref_count, RefCount}, State).
 
@@ -1537,9 +1541,9 @@ index_update_fields(Key, Updates, #msstate { index_module = Index,
 index_delete(Key, #msstate { index_module = Index, index_state = State }) ->
     Index:delete(Key, State).
 
-index_delete_by_file(File, #msstate { index_module = Index,
+index_cleanup_undefined_file(#msstate { index_module = Index,
                                       index_state  = State }) ->
-    Index:delete_by_file(File, State).
+    Index:cleanup_undefined_file(State).
 
 %%----------------------------------------------------------------------------
 %% shutdown and recovery
@@ -1730,7 +1734,7 @@ build_index(Gatherer, Left, [],
         empty ->
             unlink(Gatherer),
             ok = gatherer:stop(Gatherer),
-            ok = index_delete_by_file(undefined, State),
+            ok = index_cleanup_undefined_file(State),
             Offset = case ets:lookup(FileSummaryEts, Left) of
                          []                                       -> 0;
                          [#file_summary { file_size = FileSize }] -> FileSize

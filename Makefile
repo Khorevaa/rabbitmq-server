@@ -18,7 +18,7 @@ define PROJECT_ENV
 	    {vm_memory_high_watermark_paging_ratio, 0.5},
 	    {memory_monitor_interval, 2500},
 	    {disk_free_limit, 50000000}, %% 50MB
-	    {msg_store_index_module, rabbit_msg_store_eleveldb_index},
+	    {msg_store_index_module, rabbit_msg_store_ets_index},
 	    {backing_queue_module, rabbit_variable_queue},
 	    %% 0 ("no limit") would make a better default, but that
 	    %% breaks the QPid Java client
@@ -120,7 +120,7 @@ define PROJECT_ENV
 endef
 
 LOCAL_DEPS = sasl mnesia os_mon
-BUILD_DEPS = rabbitmq_cli eleveldb
+BUILD_DEPS = rabbitmq_cli
 DEPS = ranch lager rabbit_common
 TEST_DEPS = rabbitmq_ct_helpers rabbitmq_ct_client_helpers amqp_client meck proper
 
